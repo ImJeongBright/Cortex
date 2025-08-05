@@ -64,6 +64,7 @@ dependencies {
     implementation group: 'com.squareup.retrofit2', name: 'converter-gson', version: '2.3.0'
 
     implementation("commons-io:commons-io:2.19.0")
+    implementation("org.redisson:redisson:3.50.0")
 }
 
 tasks.named('test') {

@@ -12,6 +12,7 @@ import org.example.ticket.reservation.model.Seat;
 import org.example.ticket.reservation.repository.SeatRepository;
 import org.example.ticket.util.constant.SeatInfo;
 import org.example.ticket.venue.model.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,7 @@ public class SeatService {
         return repository.findByEmptySeat(performanceTimeId);
     }
 
+    @Async
     @Transactional
     public void preprocessSeatData(Long performanceTimeId) {
 
@@ -72,15 +74,13 @@ public class SeatService {
                 List<VenueHallRow> rows = sectionDTO.getRows();
                 rows.forEach(rowsDTO -> {
                     List<VenueHallSeat> seats = rowsDTO.getSeats();
-                    Integer startSeatNumber = seats.getFirst().getStartSeatNumber();
-                    Integer endSeatNumber = seats.getFirst().getEndSeatNumber();
                     SeatInfo seatInfo = seats.getFirst().getSeatInfo();
                     Integer price = priceMap.get(seatInfo);
 
-                    for (int i = startSeatNumber; i <= endSeatNumber; i++) {
-                        Seat seat = initializedSeat(floorDTO, sectionDTO, rowsDTO, price, performanceTime, i, seatInfo);
+                    seats.forEach(seatTemplate -> {
+                        Seat seat = processSeat(floorDTO, sectionDTO, rowsDTO, seatTemplate, performanceTime, seatInfo, price);
                         unreservationSeat.add(seat);
-                    }
+                    });
 
                 });
             });
@@ -88,16 +88,15 @@ public class SeatService {
 
         repository.saveAll(unreservationSeat);
     }
-
-    private static Seat initializedSeat(VenueHallFloor floorDTO, VenueHallSection sectionDTO, VenueHallRow rowsDTO, Integer price, PerformanceTime performanceTime, int i, SeatInfo seatInfo) {
+    private static Seat processSeat(VenueHallFloor floorDTO, VenueHallSection sectionDTO, VenueHallRow rowsDTO, VenueHallSeat seatTemplate, PerformanceTime performanceTime, SeatInfo seatInfo, Integer price) {
         return Seat.builder()
+                .performanceTime(performanceTime)
                 .seatFloor(floorDTO.getFloor())
                 .seatSection(sectionDTO.getSection())
                 .seatRow(rowsDTO.getRow())
-                .price(price)
-                .performanceTime(performanceTime)
-                .seatNumber(i)
+                .seatNumber(seatTemplate.getSeatNumber())
                 .seatType(seatInfo)
+                .price(price)
                 .isReservation(false)
                 .build();
     }
