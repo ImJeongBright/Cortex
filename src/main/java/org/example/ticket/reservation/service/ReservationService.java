@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -51,7 +50,12 @@ public class ReservationService {
 
         String reservationCode = member.makeReservationCode();
 
-        Reservation reservation = initReservation(totalPrice, member, reservationCode);
+        Reservation reservation = Reservation.builder()
+                .totalPrice(totalPrice)
+                .member(member)
+                .reservationCode(reservationCode)
+                .reservationStatus(ReservationStatus.PENDING_PAYMENT)
+                .build();
 
         List<ReservedSeat> reservedSeats = seats.stream()
                 .map(seat -> ReservedSeat.builder().reservation(reservation).seat(seat).build())
@@ -59,20 +63,10 @@ public class ReservationService {
 
         reservation.setReservedSeats(reservedSeats);
 
-        Reservation savedReservation = reservationRepository.save(reservation);
-        Reservation reservationWithDetails = reservationRepository.findByIdWithDetails(savedReservation.getId()).orElseThrow(() -> new EntityNotFoundException("예약 정보를 확인할 수 없습니다."));
+        reservationRepository.save(reservation);
 
-        return ReservationCreateResponse.from(reservationWithDetails);
+        return ReservationCreateResponse.from(reservation);
 
-    }
-
-    private static Reservation initReservation(int totalPrice, Member member, String reservationCode) {
-        return Reservation.builder()
-                .totalPrice(totalPrice)
-                .member(member)
-                .reservationCode(reservationCode)
-                .reservationStatus(ReservationStatus.PENDING_PAYMENT)
-                .build();
     }
 
 /*    @Transactional
