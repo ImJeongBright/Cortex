@@ -5,6 +5,7 @@ import org.example.ticket.venue.dto.request.VenueHallRequest;
 import org.example.ticket.venue.dto.request.VenueRequest;
 import org.example.ticket.venue.dto.response.VenueResponse;
 import org.example.ticket.venue.model.Venue;
+import org.example.ticket.venue.model.VenueHall;
 import org.example.ticket.venue.repository.VenueRepository;
 import org.springframework.stereotype.Service;
 
@@ -27,15 +28,22 @@ public class VenueService {
                         .phoneNumber(request.getPhoneNumber())
                         .build();
 
+        venueHallRequest.forEach(hallRequest -> {
+            VenueHall hall = VenueHall.builder()
+                    .totalSeats(hallRequest.getTotalSeats())
+                    .name(hallRequest.getName())
+                    .build();
+            venue.addHall(hall);
+        });
+
         venueRepository.save(venue);
 
-        venueHallService.registerVenueHallInformation(venue, venueHallRequest);
+//        venueHallService.registerVenueHallInformation(venue, venueHallRequest);
     }
 
     public List<VenueResponse> viewVenueList() {
 
         List<Venue> venueList = venueRepository.findAll();
-
         return VenueResponse.from(venueList);
     }
 

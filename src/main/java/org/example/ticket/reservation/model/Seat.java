@@ -39,6 +39,8 @@ public class Seat {
 
     @Column(name = "is_reservation")
     private Boolean isReservation;
+    @Version
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performance_time_id")

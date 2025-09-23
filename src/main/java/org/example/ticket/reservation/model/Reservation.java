@@ -3,8 +3,6 @@ package org.example.ticket.reservation.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.ticket.member.model.Member;
-import org.example.ticket.payment.model.Settlement;
-import org.example.ticket.util.constant.PaymentStatus;
 import org.example.ticket.util.constant.ReservationStatus;
 import org.hibernate.annotations.CurrentTimestamp;
 
@@ -42,10 +40,8 @@ public class Reservation {
     @Column(name = "reservation_date", updatable = false)
     private LocalDateTime reservationDateTime;
 
-    @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true, cascade = CascadeType.ALL)
-    @JoinColumn(name = "payment_id")
-    private Settlement payment;
 
+    @Builder.Default
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL)
     private List<ReservedSeat> reservedSeats = new ArrayList<>();
 
@@ -53,8 +49,8 @@ public class Reservation {
         this.reservationStatus = reservationStatus;
     }
 
-    public void completeSuccessPayment(Settlement payment) {
-        this.payment = payment;
-    }
+//    public void completeSuccessPayment(Settlement payment) {
+//        this.payment = payment;
+//    }
 
 }

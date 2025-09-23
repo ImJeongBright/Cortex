@@ -13,7 +13,7 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
 
 
     @Query(
-            "SELECT new org.example.ticket.performance.dto.response.PerformanceOverviewResponse(p.id, p.title, p.imageUrl, p.startDate, p.endDate) " +
+            "SELECT new org.example.ticket.performance.response.PerformanceOverviewResponse(p.id, p.title, p.imageUrl, p.startDate, p.endDate) " +
                     " FROM Performance p "
     )
     List<PerformanceOverviewResponse> findByIntro();

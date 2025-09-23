@@ -55,7 +55,8 @@ public class SMSService {
     public boolean verifiedCode(String phoneNumber, String code) {
         String usersKey = SMS_KEY + phoneNumber;
         String storedCode = redisTemplate.opsForValue().get(usersKey);
-
+        log.info(storedCode);
+        log.info(usersKey);
         if (code != null && code.equals(storedCode)) {
             redisTemplate.delete(usersKey);
             return true;

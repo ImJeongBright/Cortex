@@ -1,3 +1,4 @@
+/*
 package org.example.ticket.util.config;
 
 import com.siot.IamportRestClient.IamportClient;
@@ -19,3 +20,4 @@ public class PaymentConfig {
     }
 
 }
+*/

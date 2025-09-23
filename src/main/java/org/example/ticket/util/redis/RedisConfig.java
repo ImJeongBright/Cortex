@@ -25,11 +25,6 @@ public class RedisConfig {
     private static final String REDISSON_HOST_PREFIX = "redis://";
 
     @Bean
-    public RedisConnectionFactory redisConnectionFactory() {
-        return new LettuceConnectionFactory(host, port);
-    }
-
-    @Bean
     public RedissonClient redissonClient() {
         RedissonClient redisson = null;
         Config config = new Config();
@@ -37,4 +32,22 @@ public class RedisConfig {
         redisson = Redisson.create(config);
         return redisson;
     }
+
+/*    @Bean
+    public RedisConnectionFactory redisConnectionFactory() {
+        return new LettuceConnectionFactory(host, port);
+    }
+
+    @Bean
+    @Primary
+    public RedisTemplate<String, String> redisTemplate() {
+        RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory());
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        redisTemplate.setValueSerializer(new StringRedisSerializer());
+        redisTemplate.setDefaultSerializer(new StringRedisSerializer());
+
+        redisTemplate.afterPropertiesSet(); // 설정 초기화 완료
+        return redisTemplate;
+    }*/
 }

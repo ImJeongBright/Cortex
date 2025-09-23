@@ -25,14 +25,14 @@ public class PerformanceService {
 
     public Long registerPerformance(PerformanceDetailRequest detailsRequest, MultipartFile file) throws IOException {
 
-        String dbFilePath = fileService.saveImages(file);
+//        String dbFilePath = fileService.saveImages(file);
 
         Performance performance =
                 Performance.builder()
                         .ageLimit(detailsRequest.getAge())
                         .description(detailsRequest.getDescription())
                         .title(detailsRequest.getTitle())
-                        .imageUrl(dbFilePath)
+                        .imageUrl("hello World!")
                         .startDate(detailsRequest.getStartDate())
                         .endDate(detailsRequest.getEndDate())
                         .venueType(detailsRequest.getVenueType())

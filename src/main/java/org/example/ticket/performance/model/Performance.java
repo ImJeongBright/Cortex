@@ -49,11 +49,18 @@ public class Performance {
     @JoinColumn(name = "organizer_id")
     public Organizer organizer;
 
+    @Builder.Default
     @OneToMany(mappedBy = "performance",  cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PerformanceTime> performanceTimes = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "performance" , cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SeatPrice> seatPrices = new ArrayList<>();
+
+    public void addPrice(SeatPrice seatPrice) {
+        this.seatPrices.add(seatPrice);
+        seatPrice.setPerformance(this);
+    }
 
     public static Performance from(PerformanceDetailRequest request) {
         return Performance.builder()

@@ -41,7 +41,7 @@ public class VenueController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @GetMapping("/halls")
+/*    @GetMapping("/halls")
     public List<VenueResponse> viewVenueList() {
         List<VenueResponse> venueResponses = venueService.viewVenueList();
 
@@ -52,6 +52,11 @@ public class VenueController {
         }
 
         return venueResponses;
+    }*/
+
+    @GetMapping("/halls")
+    public List<VenueHallResponse> viewVenueHallList() {
+        return venueHallService.viewVenueHallList();
     }
 
 }

@@ -3,6 +3,7 @@ package org.example.ticket.venue.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.example.ticket.venue.dto.request.*;
+import org.example.ticket.venue.dto.response.VenueHallResponse;
 import org.example.ticket.venue.model.*;
 import org.example.ticket.venue.repository.*;
 import org.springframework.scheduling.annotation.Async;
@@ -18,7 +19,7 @@ public class VenueHallService {
 
     private final VenueHallRepository venueHallRepository;
 
-    public void registerVenueHallInformation(Venue venue, List<VenueHallRequest> venueHallRequest) {
+/*    public void registerVenueHallInformation(Venue venue, List<VenueHallRequest> venueHallRequest) {
 
         List<VenueHall> venueHallList = venueHallRequest.stream()
                 .map(vq -> {
@@ -32,6 +33,10 @@ public class VenueHallService {
 
 
         venueHallRepository.saveAll(venueHallList);
+    }*/
+
+    public List<VenueHallResponse> viewVenueHallList() {
+        return venueHallRepository.findAllAsVenueHallResponse();
     }
 
     @Async
@@ -42,7 +47,6 @@ public class VenueHallService {
                 .orElseThrow(() -> new EntityNotFoundException("공연장을 찾을 수 없습니다."));
 
         processFloor(floorRequestList, hall);
-
 
     }
 
