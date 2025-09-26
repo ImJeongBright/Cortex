@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
 public class VenueHallService {
 
     private final VenueHallRepository venueHallRepository;
+    private final VenueHallMapper venueHallMapper;
 
 /*    public void registerVenueHallInformation(Venue venue, List<VenueHallRequest> venueHallRequest) {
 
@@ -50,55 +51,40 @@ public class VenueHallService {
 
     }
 
-    private static void processFloor(List<VenueHallFloorRequest> floorRequestList, VenueHall hall) {
+    private void processFloor(List<VenueHallFloorRequest> floorRequestList, VenueHall hall) {
 
         floorRequestList.forEach(floorDTO -> {
-            VenueHallFloor floors = VenueHallFloor.builder()
-                    .floor(floorDTO.getFloor())
-                    .venueHall(hall)
-                    .build();
+            VenueHallFloor floors = venueHallMapper.toFloors(floorDTO, hall);
             hall.getFloorList().add(floors);
             processSection(floors, floorDTO.getSection());
         });
 
     }
 
-    private static void processSection(VenueHallFloor floors , List<VenueHallSectionRequest> sectionList) {
+    private void processSection(VenueHallFloor floors , List<VenueHallSectionRequest> sectionList) {
         sectionList.forEach(sectionDTO -> {
-            VenueHallSection sections = VenueHallSection.builder()
-                    .floor(floors)
-                    .section(sectionDTO.getSection())
-                    .build();
+            VenueHallSection sections = venueHallMapper.toSections(floors, sectionDTO);
             floors.getSections().add(sections);
             processRow(sections, sectionDTO.getRows());
         });
     }
 
-    private static void processRow(VenueHallSection sections , List<VenueHallRowRequest> rowList) {
+    private void processRow(VenueHallSection sections , List<VenueHallRowRequest> rowList) {
         rowList.forEach(rowDTO -> {
-            VenueHallRow rows = VenueHallRow.builder()
-                    .row(rowDTO.getRow())
-                    .sections(sections)
-                    .build();
+            VenueHallRow rows = venueHallMapper.toRows(sections, rowDTO);
             sections.getRows().add(rows);
             processSeats(rows, rowDTO.getSeats());
         });
     }
 
-    private static void processSeats(VenueHallRow rows, List<VenueHallSeatRequest> seatList) {
+    private void processSeats(VenueHallRow rows, List<VenueHallSeatRequest> seatList) {
         seatList.forEach(seatDTO -> {
             Integer startNum = seatDTO.getStartSeatNumber();
             Integer endNum = seatDTO.getEndSeatNumber();
 
             IntStream.rangeClosed(startNum, endNum).mapToObj(seatNumber ->
-                VenueHallSeat.builder()
-                        .seatInfo(seatDTO.getSeatInfo())
-                        .startSeatNumber(startNum)
-                        .endSeatNumber(endNum)
-                        .seatNumber(seatNumber)
-                        .row(rows)
-                        .build())
-                    .forEach(seat -> rows.getSeats().add(seat));
+                            venueHallMapper.toSeats(rows, seatDTO, seatNumber, startNum ,endNum))
+                                .forEach(seat -> rows.getSeats().add(seat));
         });
     }
 
