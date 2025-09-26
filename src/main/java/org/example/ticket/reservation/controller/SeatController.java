@@ -23,10 +23,10 @@ public class SeatController {
         seatService.preprocessSeatData(performanceTimeId);
     }
 
-    @PostMapping("{performanceTimeId}/noasync")
+/*    @PostMapping("{performanceTimeId}/noasync")
     public void registerSeatWithNoAsync(@PathVariable Long performanceTimeId) {
         seatService.preprocessSeatDataWithNoAsync(performanceTimeId);
-    }
+    }*/
 
 
     @GetMapping("/{performanceTimeId}")

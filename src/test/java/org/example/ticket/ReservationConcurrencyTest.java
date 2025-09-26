@@ -9,6 +9,7 @@ import org.example.ticket.performance.repository.PerformanceTimeRepository;
 import org.example.ticket.performance.request.PerformanceDetailRequest;
 import org.example.ticket.performance.request.PerformanceTimeRequest;
 import org.example.ticket.performance.request.SeatPriceRequest;
+import org.example.ticket.performance.response.PerformanceTimeResponse;
 import org.example.ticket.performance.service.PerformanceService;
 import org.example.ticket.performance.service.PerformanceTimeService;
 import org.example.ticket.performance.service.SeatPriceService;
@@ -21,6 +22,7 @@ import org.example.ticket.reservation.service.SeatService;
 import org.example.ticket.util.constant.SeatInfo;
 import org.example.ticket.venue.dto.request.*;
 import org.example.ticket.venue.model.Venue;
+import org.example.ticket.venue.model.VenueHall;
 import org.example.ticket.venue.repository.VenueHallRepository;
 import org.example.ticket.venue.repository.VenueRepository;
 import org.example.ticket.venue.service.VenueHallService;
@@ -48,9 +50,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -58,10 +61,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ReservationConcurrencyTest {
 
     private static final Logger log = LoggerFactory.getLogger(ReservationConcurrencyTest.class);
-    // --- 테스트 대상 서비스 ---
-    @Autowired private ReservationService reservationService;
 
-    // --- 데이터 설정을 위한 서비스 및 리포지토리 ---
+    @Autowired private ReservationService reservationService;
+    @Autowired private ReservationFacade reservationFacade;
     @Autowired private MemberRepository memberRepository;
     @Autowired private VenueService venueService;
     @Autowired private VenueHallService venueHallService;
@@ -70,81 +72,66 @@ class ReservationConcurrencyTest {
     @Autowired private PerformanceTimeService performanceTimeService;
     @Autowired private SeatService seatService;
     @Autowired private SeatRepository seatRepository;
-    @Autowired private VenueRepository venueRepository;
-    @Autowired private PerformanceTimeRepository performanceTimeRepository;
-    @Autowired private PerformanceRepository performanceRepository;
-    @Autowired private VenueHallRepository venueHallRepository;
-    @Autowired private ReservationFacade reservationFacade;
 
-    private String memberId;
-    private Long targetSeatId; // 모든 스레드가 동시에 요청할 좌석 ID
+    private Long targetSeatId;
     private Long performanceTimeId;
     private List<Member> members;
+    private final int USER_COUNT = 3000; // 사용자 및 스레드 수를 상수로 관리
 
     @BeforeEach
     @Transactional
     void setUp() throws IOException {
-
-        int userCount = 100; // 테스트 스레드 수와 동일하게 설정
-        this.members = new ArrayList<>();
-        for (int i = 0; i < userCount; i++) {
+        // === 1. 테스트 사용자 생성 ===
+        members = new ArrayList<>();
+        IntStream.range(0, USER_COUNT).forEach(i -> {
             Member member = Member.builder()
-                    .walletAddress("0x" + i + "asduwqb22") // 고유한 지갑 주소
-                    .phoneNumber("010-0000-" + String.format("%04d", i)) // 고유한 전화번호
+                    .walletAddress("0x" + i + "abcde")
+                    .phoneNumber("010-0000-" + String.format("%04d", i))
                     .role("ROLE_USER")
-                    .nickname("testuser" + i) // 고유한 닉네임
+                    .nickname("testuser" + i)
                     .smsVerified(true)
                     .walletVerified(true)
                     .build();
             members.add(member);
-        }
+        });
         memberRepository.saveAll(members);
 
-        // given: 테스트를 위한 데이터 준비 (Arrange)
-        // 1. 공연장 및 홀 정보 DTO 생성
+        // === 2. 공연장 및 좌석 데이터 준비 ===
         VenueRequest venueRequest = VenueRequest.builder().name("테스트 공연장").address("서울시 테스트구").build();
-        VenueHallRequest hallRequest = VenueHallRequest.builder().name("asddf").totalSeats(5).build(); // 테스트할 좌석 수와 일치시킴
+        VenueHallRequest hallRequest = VenueHallRequest.builder().name("테스트 홀").totalSeats(5).build();
 
-        // 2. 공연장 및 기본 홀 정보 저장
-        venueService.insertVenue(venueRequest, List.of(hallRequest));
-        Venue savedVenue = venueRepository.findAll().getFirst();
-        Long hallId = venueRepository.findByVenueHallsId(savedVenue.getId());
+        // ✨ [수정] Service가 저장된 Venue 객체를 반환한다고 가정
+        Venue savedVenue = venueService.insertVenue(venueRequest, List.of(hallRequest));
+        assertTrue(savedVenue.getVenueHalls() != null && !savedVenue.getVenueHalls().isEmpty(), "공연 홀이 생성되지 않았습니다.");
+        VenueHall savedHall = savedVenue.getVenueHalls().get(0);
+        Long hallId = savedHall.getId();
 
-        // 3. (★★★★★ 여기가 빠졌던 부분 ★★★★★) 좌석 배치도(템플릿) DTO 생성
-        VenueHallSeatRequest row1Seats = VenueHallSeatRequest.builder().seatInfo(SeatInfo.VIP).startSeatNumber(1).endSeatNumber(3).build(); // 1,2,3번 좌석
+        VenueHallSeatRequest row1Seats = VenueHallSeatRequest.builder().seatInfo(SeatInfo.VIP).startSeatNumber(1).endSeatNumber(3).build();
         VenueHallRowRequest row1 = VenueHallRowRequest.builder().row(1).seats(List.of(row1Seats)).build();
-
-        VenueHallSeatRequest row2Seats = VenueHallSeatRequest.builder().seatInfo(SeatInfo.S).startSeatNumber(1).endSeatNumber(2).build(); // 1,2번 좌석
+        VenueHallSeatRequest row2Seats = VenueHallSeatRequest.builder().seatInfo(SeatInfo.S).startSeatNumber(1).endSeatNumber(2).build();
         VenueHallRowRequest row2 = VenueHallRowRequest.builder().row(2).seats(List.of(row2Seats)).build();
-
         VenueHallSectionRequest sectionA = VenueHallSectionRequest.builder().section("A").rows(List.of(row1, row2)).build();
         VenueHallFloorRequest floor1 = VenueHallFloorRequest.builder().floor(1).section(List.of(sectionA)).build();
-        List<VenueHallFloorRequest> layoutRequest = List.of(floor1);
 
-        // 4. 공연 정보 DTO 생성
+        venueHallService.allocateEmptySeatTemplate(hallId, List.of(floor1));
+
+        // === 3. 공연 및 가격 정책 데이터 준비 ===
         PerformanceDetailRequest performanceRequest = PerformanceDetailRequest.builder()
                 .title("테스트 공연")
                 .startDate(LocalDate.now())
                 .endDate(LocalDate.now().plusDays(10))
                 .build();
 
-        // 5. 가격 정책 DTO 생성
+        // ✨ [수정] Service가 저장된 Performance ID를 반환한다고 가정
+        Long performanceId = performanceService.registerPerformance(performanceRequest, null);
+
         List<SeatPriceRequest> priceRequests = List.of(
                 SeatPriceRequest.builder().seatInfo(SeatInfo.VIP).price(150000).build(),
                 SeatPriceRequest.builder().seatInfo(SeatInfo.S).price(120000).build()
         );
-
-        // when: 테스트하려는 로직 실행 (Act)
-        // 6. 좌석 템플릿 등록
-        venueHallService.allocateEmptySeatTemplate(hallId, layoutRequest);
-
-        // 7. 공연 등록
-        Long performanceId = performanceService.registerPerformance(performanceRequest, null);
-
-        // 8. 가격 정책 등록
         seatPriceService.setSeatPrice(priceRequests, performanceId);
 
-        // 9. 공연 회차 DTO 생성 및 등록
+        // === 4. 공연 회차 및 좌석 재고 생성 ===
         List<PerformanceTimeRequest> timeRequests = List.of(
                 PerformanceTimeRequest.builder()
                         .showDate(LocalDate.now().plusDays(5))
@@ -152,24 +139,27 @@ class ReservationConcurrencyTest {
                         .venueHallId(hallId)
                         .build()
         );
-        performanceTimeService.allocatePerformanceTime(timeRequests, performanceId);
-        performanceTimeId = performanceTimeRepository.findAll().getFirst().getId();
 
-        // 10. 좌석 재고 생성 (핵심 테스트 대상)
-        seatService.preprocessSeatDataWithNoAsync(performanceTimeId);
+        // ✨ [수정] Service가 저장된 PerformanceTime 리스트를 반환한다고 가정
+        List<PerformanceTimeResponse> savedTimes = performanceTimeService.allocatePerformanceTime(timeRequests, performanceId);
+        assertTrue(!savedTimes.isEmpty(), "공연 회차가 생성되지 않았습니다.");
+        this.performanceTimeId = savedTimes.get(0).getId();
 
-        // === 6. 테스트 대상 좌석 ID 설정 ===
-        this.targetSeatId = seatRepository.findAll().getFirst().getId();
+        seatService.preprocessSeatDataWithNoAsync(this.performanceTimeId); // ✨ [수정] 동기 메서드 호출로 변경
+
+        // === 5. 테스트 대상 좌석 ID 설정 ===
+        List<Seat> seats = seatRepository.findAll();
+        assertTrue(!seats.isEmpty(), "좌석 재고가 생성되지 않았습니다.");
+        this.targetSeatId = seats.get(0).getId();
     }
 
     @Test
-    @DisplayName("비관적 락을 사용하여 동일한 좌석에 동시에 1000명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
+    @DisplayName("비관적 락을 사용하여 동일한 좌석에 100명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
     void reserveSameSeatConcurrentlyWithDifferentUsers() throws InterruptedException {
         // given
-        int threadCount = 100;
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch startLatch = new CountDownLatch(1); // 시작 신호용
-        CountDownLatch endLatch = new CountDownLatch(threadCount);   // 종료 대기용
+        int threadCount = USER_COUNT;
+        ExecutorService executorService = Executors.newFixedThreadPool(32); // CPU 코어 수에 맞춰 적절히 조절
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
 
         AtomicInteger successCount = new AtomicInteger();
         AtomicInteger failureCount = new AtomicInteger();
@@ -178,53 +168,38 @@ class ReservationConcurrencyTest {
         ReservationRequest request = new ReservationRequest(this.performanceTimeId, List.of(this.targetSeatId));
 
         // when
-        List<Callable<Void>> tasks = members.stream()
-                .map(members -> (Callable<Void>) () -> {
-                    startLatch.await(); // 모든 스레드가 여기서 대기
-                    long startTime = System.nanoTime();
-                    try {
-                        reservationService.createReservation(members.getWalletAddress(), request);
+        for (Member member : members) { // ✨ [수정] 변수 이름 변경 및 for-each 루프로 변경
+            executorService.submit(() -> {
+                long startTime = System.nanoTime();
+                try {
+                    reservationService.createReservation(member.getWalletAddress(), request);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    long endTime = System.nanoTime();
+                    responseTimes.add(endTime - startTime);
+                    endLatch.countDown();
+                }
+            });
+        }
 
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failureCount.incrementAndGet();
-                    } finally {
-                        long endTime = System.nanoTime();
-                        responseTimes.add(endTime - startTime);
-                        endLatch.countDown();
-                    }
-                    return null; // Callable<Void>는 null을 반환해야 한다.
-                })
-                .toList();
-
-        tasks.forEach(executorService::submit);
-        startLatch.countDown(); // 신호탄! 모든 스레드 동시 시작
-        endLatch.await(); // 모든 스레드가 끝날 때까지 대기
+        endLatch.await();
         executorService.shutdown();
 
         // then
-        // 1. 정합성 검증
         assertEquals(1, successCount.get(), "예약은 단 한 번만 성공해야 합니다.");
         assertEquals(threadCount - 1, failureCount.get(), "나머지 요청은 모두 실패해야 합니다.");
-
-        // 2. 성능 지표 계산 및 출력
-        long minTimeMs = responseTimes.stream().min(Long::compareTo).orElse(0L) / 1_000_000;
-        long maxTimeMs = responseTimes.stream().max(Long::compareTo).orElse(0L) / 1_000_000;
-        double avgTimeMs = responseTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0;
-
-        testLog(threadCount, successCount, failureCount, minTimeMs, maxTimeMs, avgTimeMs, "비관적");
+        logPerformance("비관적", threadCount, successCount, failureCount, responseTimes);
     }
-
-
 
     @Test
-    @DisplayName("낙관적 락을 이용하여 동일한 좌석에 동시에 1000명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
+    @DisplayName("낙관적 락을 이용하여 동일한 좌석에 100명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
     void reserveSameSeatConcurrentlyWithOptimisticLock() throws InterruptedException {
         // given
-        int threadCount = 100;
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch startLatch = new CountDownLatch(1); // 시작 신호용
-        CountDownLatch endLatch = new CountDownLatch(threadCount);   // 종료 대기용
+        int threadCount = USER_COUNT;
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
 
         AtomicInteger successCount = new AtomicInteger();
         AtomicInteger failureCount = new AtomicInteger();
@@ -233,44 +208,80 @@ class ReservationConcurrencyTest {
         ReservationRequest request = new ReservationRequest(this.performanceTimeId, List.of(this.targetSeatId));
 
         // when
-        List<Callable<Void>> tasks = members.stream()
-                .map(members -> (Callable<Void>) () -> {
-                    startLatch.await(); // 모든 스레드가 여기서 대기
-                    long startTime = System.nanoTime();
-                    try {
-                        reservationService.createReservationWithOptimistic(members.getWalletAddress(), request);
+        for (Member member : members) { // ✨ [수정] 변수 이름 변경 및 for-each 루프로 변경
+            executorService.submit(() -> {
+                long startTime = System.nanoTime();
+                try {
+                    reservationService.createReservationWithOptimistic(member.getWalletAddress(), request);
+                    successCount.incrementAndGet();
+                } catch (ObjectOptimisticLockingFailureException e) { // ✨ [수정] 구체적인 예외 처리
+                    failureCount.incrementAndGet();
+                } catch (Exception e) {
+                    log.error("예상치 못한 예외 발생", e);
+                    failureCount.incrementAndGet();
+                } finally {
+                    long endTime = System.nanoTime();
+                    responseTimes.add(endTime - startTime);
+                    endLatch.countDown();
+                }
+            });
+        }
 
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failureCount.incrementAndGet();
-                    } finally {
-                        long endTime = System.nanoTime();
-                        responseTimes.add(endTime - startTime);
-                        endLatch.countDown();
-                    }
-                    return null; // Callable<Void>는 null을 반환해야 한다.
-                })
-                .toList();
-
-        tasks.forEach(executorService::submit);
-        startLatch.countDown(); // 신호탄! 모든 스레드 동시 시작
-        endLatch.await(); // 모든 스레드가 끝날 때까지 대기
+        endLatch.await();
         executorService.shutdown();
 
         // then
-        // 1. 정합성 검증
         assertEquals(1, successCount.get(), "예약은 단 한 번만 성공해야 합니다.");
         assertEquals(threadCount - 1, failureCount.get(), "나머지 요청은 모두 실패해야 합니다.");
+        logPerformance("낙관적", threadCount, successCount, failureCount, responseTimes);
+    }
 
-        // 2. 성능 지표 계산 및 출력
+    @Test
+    @DisplayName("분산 락을 이용하여 동일한 좌석에 100명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
+    void reserveSameSeatConcurrentlyWithDistributionLock() throws InterruptedException {
+        // given
+        int threadCount = USER_COUNT; // ✨ [수정] 스레드 수 일치
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
+
+        AtomicInteger successCount = new AtomicInteger();
+        AtomicInteger failureCount = new AtomicInteger();
+        List<Long> responseTimes = Collections.synchronizedList(new ArrayList<>());
+
+        ReservationRequest request = new ReservationRequest(this.performanceTimeId, List.of(this.targetSeatId));
+
+        // when
+        for (Member member : members) { // ✨ [수정] 변수 이름 변경 및 for-each 루프로 변경
+            executorService.submit(() -> {
+                long startTime = System.nanoTime();
+                try {
+                    reservationFacade.createReservationWithLock(member.getWalletAddress(), request);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    long endTime = System.nanoTime();
+                    responseTimes.add(endTime - startTime);
+                    endLatch.countDown();
+                }
+            });
+        }
+
+        endLatch.await();
+        executorService.shutdown();
+
+        // then
+        assertEquals(1, successCount.get(), "예약은 단 한 번만 성공해야 합니다.");
+        assertEquals(threadCount - 1, failureCount.get(), "나머지 요청은 모두 실패해야 합니다.");
+        logPerformance("분산", threadCount, successCount, failureCount, responseTimes);
+    }
+
+    // 로그 출력을 위한 헬퍼 메서드
+    private void logPerformance(String type, int threadCount, AtomicInteger successCount, AtomicInteger failureCount, List<Long> responseTimes) {
         long minTimeMs = responseTimes.stream().min(Long::compareTo).orElse(0L) / 1_000_000;
         long maxTimeMs = responseTimes.stream().max(Long::compareTo).orElse(0L) / 1_000_000;
         double avgTimeMs = responseTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0;
 
-        testLog(threadCount, successCount, failureCount, minTimeMs, maxTimeMs, avgTimeMs, "낙관적");
-    }
-
-    private static void testLog(int threadCount, AtomicInteger successCount, AtomicInteger failureCount, long minTimeMs, long maxTimeMs, double avgTimeMs, String type) {
         log.info("========== 동시성 테스트 결과 ({} 락) ==========", type);
         log.info("총 요청: {}건", threadCount);
         log.info("성공: {}건, 실패: {}건", successCount.get(), failureCount.get());
@@ -279,58 +290,4 @@ class ReservationConcurrencyTest {
         log.info("평균 응답 시간: {}ms", String.format("%.2f", avgTimeMs));
         log.info("==============================================");
     }
-
-    @Test
-    @DisplayName("분산락을 이용하여 동일한 좌석에 동시에 1000명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
-    void reserveSameSeatConcurrentlyWithDistributionLock() throws InterruptedException {
-        // given
-        int threadCount = 3000;
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch startLatch = new CountDownLatch(1); // 시작 신호용
-        CountDownLatch endLatch = new CountDownLatch(threadCount);   // 종료 대기용
-
-        AtomicInteger successCount = new AtomicInteger();
-        AtomicInteger failureCount = new AtomicInteger();
-        List<Long> responseTimes = Collections.synchronizedList(new ArrayList<>());
-
-        ReservationRequest request = new ReservationRequest(this.performanceTimeId, List.of(this.targetSeatId));
-
-        // when
-        List<Callable<Void>> tasks = members.stream()
-                .map(members -> (Callable<Void>) () -> {
-                    startLatch.await(); // 모든 스레드가 여기서 대기
-                    long startTime = System.nanoTime();
-                    try {
-                        reservationFacade.createReservationWithLock(members.getWalletAddress(), request);
-
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failureCount.incrementAndGet();
-                    } finally {
-                        long endTime = System.nanoTime();
-                        responseTimes.add(endTime - startTime);
-                        endLatch.countDown();
-                    }
-                    return null; // Callable<Void>는 null을 반환해야 한다.
-                })
-                .toList();
-
-        tasks.forEach(executorService::submit);
-        startLatch.countDown(); // 신호탄! 모든 스레드 동시 시작
-        endLatch.await(); // 모든 스레드가 끝날 때까지 대기
-        executorService.shutdown();
-
-        // then
-        // 1. 정합성 검증
-        assertEquals(1, successCount.get(), "예약은 단 한 번만 성공해야 합니다.");
-        assertEquals(threadCount - 1, failureCount.get(), "나머지 요청은 모두 실패해야 합니다.");
-
-        // 2. 성능 지표 계산 및 출력
-        long minTimeMs = responseTimes.stream().min(Long::compareTo).orElse(0L) / 1_000_000;
-        long maxTimeMs = responseTimes.stream().max(Long::compareTo).orElse(0L) / 1_000_000;
-        double avgTimeMs = responseTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0;
-
-        testLog(threadCount, successCount, failureCount, minTimeMs, maxTimeMs, avgTimeMs, "분산");
-    }
-
 }

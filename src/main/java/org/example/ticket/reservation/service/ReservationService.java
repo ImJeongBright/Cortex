@@ -34,7 +34,6 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository;
     private final SeatService seatService;
-    private final RedissonClient redissonClient;
 
     @Transactional
     public ReservationCreateResponse createReservation(String walletAddress, ReservationRequest request) {
@@ -69,7 +68,7 @@ public class ReservationService {
 
     }
 
-/*    @Transactional
+    @Transactional
     public ReservationCreateResponse createReservationWithDistribution(String walletAddress, ReservationRequest request) {
         Member member = memberRepository.findByWalletAddress(walletAddress)
                 .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
@@ -77,7 +76,7 @@ public class ReservationService {
         List<Seat> seats = seatService.findAndLockSeatsByIdsWithDistribution(request.getSeatIds());
         checkSeatsAvailability(seats);
 
-        seatService.changeSeatState(seats);
+        seatService.changeSeatsState(seats);
 
         int totalPrice = seats.stream().mapToInt(Seat::getPrice).sum();
 
@@ -110,7 +109,7 @@ public class ReservationService {
         List<Seat> seats = seatService.findAndLockSeatsByIdsWithOptimistic(request.getSeatIds());
         checkSeatsAvailability(seats);
 
-        seatService.changeSeatState(seats);
+        seatService.changeSeatsState(seats);
 
         int totalPrice = seats.stream().mapToInt(Seat::getPrice).sum();
 
@@ -133,7 +132,7 @@ public class ReservationService {
 
         return ReservationCreateResponse.from(reservation);
 
-    }*/
+    }
 
 
     /**

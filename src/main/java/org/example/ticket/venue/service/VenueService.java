@@ -19,7 +19,7 @@ public class VenueService {
     private final VenueHallService venueHallService;
 
 
-    public void insertVenue(VenueRequest request, List<VenueHallRequest> venueHallRequest) {
+    public Venue insertVenue(VenueRequest request, List<VenueHallRequest> venueHallRequest) {
 
         Venue venue =
                 Venue.builder()
@@ -39,6 +39,7 @@ public class VenueService {
         venueRepository.save(venue);
 
 //        venueHallService.registerVenueHallInformation(venue, venueHallRequest);
+        return venue;
     }
 
     public List<VenueResponse> viewVenueList() {
