@@ -29,11 +29,8 @@ import java.util.List;
 public class PerformanceController {
 
     private final PerformanceService performanceService;
-    private final SeatPriceService seatPriceService;
-    private final PerformanceTimeService performanceTimeService;
 
     @PostMapping("/enter")
-//    @PreAuthorize("hasrole('ORGANIZER')")
     public ResponseEntity<Void> registerPerformance(@Validated @RequestPart("details") PerformanceDetailRequest detailsRequest,
                                                     @Validated @RequestPart("image") MultipartFile file) throws IOException {
 
@@ -46,22 +43,6 @@ public class PerformanceController {
             return ResponseEntity.created(location).build();
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    }
-
-    @PostMapping("/enter/{performanceId}/prices")
-//    @PreAuthorize("hasrole('ORGANIZER')")
-    public ResponseEntity<?> registerSeatPrice(@PathVariable Long performanceId, @RequestBody List<SeatPriceRequest> seatPriceRequestList) {
-        log.info("저장 완료");
-        seatPriceService.setSeatPrice(seatPriceRequestList, performanceId);
-
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/enter/{performanceId}/times")
-//    @PreAuthorize("hasrole('ORGANIZER')")
-    public ResponseEntity<?> registerPerformanceTime(@PathVariable Long performanceId, @RequestBody List<PerformanceTimeRequest> requests) {
-        List<PerformanceTimeResponse> performanceTimeResponses = performanceTimeService.allocatePerformanceTime(requests, performanceId);
-        return ResponseEntity.ok(performanceTimeResponses);
     }
 
     @GetMapping("/intro/{performanceId}")

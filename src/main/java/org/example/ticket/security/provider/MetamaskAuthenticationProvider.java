@@ -1,11 +1,10 @@
 package org.example.ticket.security.provider;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticket.member.model.Member;
 import org.example.ticket.member.repository.MemberRepository;
-import org.example.ticket.member.signature.model.dto.SignatureVerifyRequest;
+import org.example.ticket.member.signature.request.SignatureVerifyRequest;
 import org.example.ticket.member.signature.service.SignatureService;
 import org.example.ticket.security.util.MetamaskUserDetails;
 import org.example.ticket.security.token.MetamaskAuthenticationToken;
@@ -17,13 +16,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
-import org.web3j.crypto.Keys;
-import org.web3j.crypto.Sign;
-import org.web3j.utils.Numeric;
-
-import java.math.BigInteger;
-import java.security.SignatureException;
-import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor

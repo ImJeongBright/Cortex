@@ -1,4 +1,4 @@
-package org.example.ticket.member.signature.model.dto;
+package org.example.ticket.member.signature.request;
 
 import lombok.*;
 

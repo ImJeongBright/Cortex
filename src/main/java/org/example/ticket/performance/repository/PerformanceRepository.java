@@ -21,5 +21,11 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
 
     Optional<Performance> findById(@Param("id") Long id);
 
+    @Query("select distinct p from Performance p " +
+            "left join fetch p.seatPrices " +
+            "left join fetch p.performanceTimes " +
+            "where p.id=:id")
+    Optional<Performance> findByIdWithDetails(Long id);
+
 
 }
