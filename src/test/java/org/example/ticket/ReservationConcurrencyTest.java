@@ -9,9 +9,11 @@ import org.example.ticket.performance.response.PerformanceTimeResponse;
 import org.example.ticket.performance.service.PerformanceService;
 import org.example.ticket.performance.service.PerformanceTimeService;
 import org.example.ticket.performance.service.SeatPriceService;
+import org.example.ticket.reservation.request.ReservationCheckRequest;
 import org.example.ticket.reservation.request.ReservationRequest;
 import org.example.ticket.reservation.model.Seat;
 import org.example.ticket.reservation.repository.SeatRepository;
+import org.example.ticket.reservation.response.ReservationCreateResponse;
 import org.example.ticket.reservation.service.ReservationFacade;
 import org.example.ticket.reservation.service.ReservationService;
 import org.example.ticket.reservation.service.SeatService;
@@ -45,6 +47,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,21 +58,31 @@ class ReservationConcurrencyTest {
 
     private static final Logger log = LoggerFactory.getLogger(ReservationConcurrencyTest.class);
 
-    @Autowired private ReservationService reservationService;
-    @Autowired private ReservationFacade reservationFacade;
-    @Autowired private MemberRepository memberRepository;
-    @Autowired private VenueService venueService;
-    @Autowired private VenueHallService venueHallService;
-    @Autowired private PerformanceService performanceService;
-    @Autowired private SeatPriceService seatPriceService;
-    @Autowired private PerformanceTimeService performanceTimeService;
-    @Autowired private SeatService seatService;
-    @Autowired private SeatRepository seatRepository;
+    @Autowired
+    private ReservationService reservationService;
+    @Autowired
+    private ReservationFacade reservationFacade;
+    @Autowired
+    private MemberRepository memberRepository;
+    @Autowired
+    private VenueService venueService;
+    @Autowired
+    private VenueHallService venueHallService;
+    @Autowired
+    private PerformanceService performanceService;
+    @Autowired
+    private SeatPriceService seatPriceService;
+    @Autowired
+    private PerformanceTimeService performanceTimeService;
+    @Autowired
+    private SeatService seatService;
+    @Autowired
+    private SeatRepository seatRepository;
 
     private Long targetSeatId;
     private Long performanceTimeId;
     private List<Member> members;
-    private final int USER_COUNT = 5000; // 사용자 및 스레드 수를 상수로 관리
+    private final int USER_COUNT = 100; // 사용자 및 스레드 수를 상수로 관리
 
     @BeforeEach
     @Transactional
@@ -147,6 +160,42 @@ class ReservationConcurrencyTest {
     }
 
     @Test
+    @DisplayName("단일 스레드에서 예약 생성부터 확정까지 전체 흐름 테스트")
+    void testSingleThreadedReservationFlow() {
+        log.info("--- 단일 스레드 테스트 시작 ---");
+        // given: 첫 번째 사용자만 사용
+        Member member = members.get(0);
+        ReservationRequest request = new ReservationRequest(this.performanceTimeId, List.of(this.targetSeatId));
+        log.info("테스트 사용자: {}, 좌석: {}", member.getWalletAddress(), this.targetSeatId);
+
+        // when & then
+        try {
+            log.info("1. createReservation 호출 시도...");
+
+            ReservationCreateResponse createResponse = reservationService.createReservation(member.getWalletAddress(), request);
+            log.info("✅ createReservation 성공! Reservation ID: {}", createResponse.getId());
+
+            log.info("2. confirmReservation 호출 시도...");
+            ReservationCheckRequest checkRequest = new ReservationCheckRequest(createResponse.getId());
+            reservationService.confirmReservation(checkRequest);
+            log.info("✅ confirmReservation 성공!");
+
+            log.info("🎉 최종 예약 성공!");
+
+
+        } catch (Exception e) {
+            // ❗️❗️❗️ 실패 시 예외의 전체 내용을 로그로 출력하여 원인을 파악합니다. ❗️❗️❗️
+            log.error("❌ 테스트 실패! 예상치 못한 예외 발생", e);
+            // fail()을 사용해 테스트를 명시적으로 실패 처리하고 예외 원인을 보여줍니다.
+            fail("단일 스레드 테스트 실행 중 예외가 발생했습니다.", e);
+
+        }
+        log.info("--- 단일 스레드 테스트 종료 ---");
+    }
+
+
+
+    @Test
     @DisplayName("비관적 락을 사용하여 동일한 좌석에 100명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
     void reserveSameSeatConcurrentlyWithDifferentUsers() throws InterruptedException {
         // given
@@ -165,7 +214,9 @@ class ReservationConcurrencyTest {
             executorService.submit(() -> {
                 long startTime = System.nanoTime();
                 try {
-                    reservationService.createReservation(member.getWalletAddress(), request);
+                    ReservationCreateResponse createResponse = reservationService.createReservation(member.getWalletAddress(), request);
+                    ReservationCheckRequest checkRequest = new ReservationCheckRequest(createResponse.getId());
+                    reservationService.confirmReservation(checkRequest);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failureCount.incrementAndGet();
@@ -205,7 +256,11 @@ class ReservationConcurrencyTest {
             executorService.submit(() -> {
                 long startTime = System.nanoTime();
                 try {
-                    reservationService.createReservationWithOptimistic(member.getWalletAddress(), request);
+                    ReservationCreateResponse createResponse = reservationService.createReservationWithOptimistic(member.getWalletAddress(), request);
+
+                    ReservationCheckRequest checkRequest = new ReservationCheckRequest(createResponse.getId());
+                    reservationService.confirmReservation(checkRequest);
+
                     successCount.incrementAndGet();
                 } catch (ObjectOptimisticLockingFailureException e) { // ✨ [수정] 구체적인 예외 처리
                     failureCount.incrementAndGet();

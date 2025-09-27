@@ -42,7 +42,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository;
     private final SeatService seatService;
-    private final static Long EXPIRED_SCHEDULING_TIME = 420000L;
+    private final static long EXPIRED_SCHEDULING_TIME = 420000;
 
 
     @Transactional
@@ -66,7 +66,7 @@ public class ReservationService {
         reservation.setExpiredTime(null);
 
         Performance performance = reservation.getReservedSeats().getFirst().getSeat().getPerformanceTime().getPerformance();
-        String walletAddress = performance.getOrganizer().getAddress();
+        String walletAddress = reservation.getMember().getWalletAddress();
 
         seatService.changeSeatsState(seats, RESERVED);
 
@@ -144,6 +144,7 @@ public class ReservationService {
                 .totalPrice(totalPrice)
                 .member(member)
                 .reservationCode(reservationCode)
+                .expiredTime(LocalDateTime.now().plusMinutes(7L))
                 .reservationStatus(PENDING_PAYMENT)
                 .build();
 
@@ -178,6 +179,7 @@ public class ReservationService {
                 .member(member)
                 .reservationCode(reservationCode)
                 .reservationStatus(PENDING_PAYMENT)
+                .expiredTime(LocalDateTime.now().plusMinutes(7L))
                 .build();
 
         List<ReservedSeat> reservedSeats = seats.stream()
@@ -195,7 +197,7 @@ public class ReservationService {
 
     /**
      *
-     * @param reservationId
+//     * @param reservationId
      * @return
      * @throws IamportResponseException
      * @throws IOException
@@ -207,7 +209,7 @@ public class ReservationService {
      *    해당 부분에서 여러번의 쿼리로, 성능 저하가 될 수 있음, 해서 한 번의 쿼리로 모든 정보를 가져오도록 변경
      *
      */
-    @Transactional
+/*    @Transactional
     public ReservationSuccessResponse confirmReservation(Long reservationId) throws IamportResponseException, IOException {
 
 
@@ -235,7 +237,7 @@ public class ReservationService {
                 getPerformance().getOrganizer().getMember().getWalletAddress();
 
         return ReservationSuccessResponse.from(reservation, performance, byWalletAddressByOrganizer);
-    }
+    }*/
 
     public void checkSeatsAvailability(List<Seat> seats) {
 

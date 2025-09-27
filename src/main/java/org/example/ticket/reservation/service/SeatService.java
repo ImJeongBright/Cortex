@@ -123,7 +123,7 @@ public class SeatService {
                 .seatNumber(seatTemplate.getSeatNumber())
                 .seatType(seatInfo)
                 .price(price)
-                .isReservation(false)
+                .seatStatus(SeatStatus.AVAILABLE)
                 .build();
     }
 

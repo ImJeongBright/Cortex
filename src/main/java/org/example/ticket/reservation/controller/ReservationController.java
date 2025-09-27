@@ -38,11 +38,11 @@ public class ReservationController {
     public ReservationCreateResponse registerReservationWithDistribution(@AuthenticationPrincipal Member member, @RequestBody ReservationRequest reservationRequest) {
         return reservationFacade.createReservationWithLock(member.getWalletAddress(), reservationRequest);
     }*/
-
+/*
     @PostMapping("/{reservationId}/confirm")
     public ReservationSuccessResponse completeReservation(@PathVariable Long reservationId) throws IamportResponseException, IOException {
         return reservationService.confirmReservation(reservationId);
-    }
+    }*/
 
 
 }
