@@ -11,6 +11,7 @@ import org.example.ticket.reservation.response.SeatResponse;
 import org.example.ticket.reservation.model.Seat;
 import org.example.ticket.reservation.repository.SeatRepository;
 import org.example.ticket.util.constant.SeatInfo;
+import org.example.ticket.util.constant.SeatStatus;
 import org.example.ticket.venue.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.scheduling.annotation.Async;
@@ -52,8 +53,8 @@ public class SeatService {
 //    }
 
     @Transactional
-    public void changeSeatsState(List<Seat> seats) {
-        seats.forEach(Seat::markAsReserved);
+    public void changeSeatsState(List<Seat> seats, SeatStatus seatStatus) {
+        seats.forEach(seat -> seat.markAsReserved(seatStatus));
     }
 
     @Transactional(readOnly = true)

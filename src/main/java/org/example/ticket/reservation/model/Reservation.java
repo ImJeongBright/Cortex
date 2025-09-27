@@ -40,6 +40,9 @@ public class Reservation {
     @Column(name = "reservation_date", updatable = false)
     private LocalDateTime reservationDateTime;
 
+    @Column(name = "reservation_expired_time")
+    private LocalDateTime expiredTime;
+
 
     @Builder.Default
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL)

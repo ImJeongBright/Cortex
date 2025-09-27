@@ -5,6 +5,9 @@ import lombok.*;
 import org.example.ticket.performance.model.PerformanceTime;
 import org.example.ticket.reservation.request.SeatRequest;
 import org.example.ticket.util.constant.SeatInfo;
+import org.example.ticket.util.constant.SeatStatus;
+
+import static org.example.ticket.util.constant.SeatStatus.LOCKED;
 
 @Entity
 @Builder
@@ -39,8 +42,13 @@ public class Seat {
 
     @Column(name = "is_reservation")
     private Boolean isReservation;
-    @Version
-    private Long version;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "seat_status")
+    private SeatStatus seatStatus;
+
+/*    @Version
+    private Long version;*/
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performance_time_id")
@@ -58,8 +66,8 @@ public class Seat {
                 .build();
     }
 
-    public void markAsReserved() {
-        this.isReservation = true;
+    public void markAsReserved(SeatStatus seatStatus) {
+        this.seatStatus = seatStatus;
     }
 
     public void forIncreaseSeatNumber(Integer seatNumber) {

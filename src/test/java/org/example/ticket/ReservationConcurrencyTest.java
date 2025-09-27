@@ -2,10 +2,6 @@ package org.example.ticket;
 
 import org.example.ticket.member.model.Member;
 import org.example.ticket.member.repository.MemberRepository;
-import org.example.ticket.performance.model.Performance;
-import org.example.ticket.performance.model.PerformanceTime;
-import org.example.ticket.performance.repository.PerformanceRepository;
-import org.example.ticket.performance.repository.PerformanceTimeRepository;
 import org.example.ticket.performance.request.PerformanceDetailRequest;
 import org.example.ticket.performance.request.PerformanceTimeRequest;
 import org.example.ticket.performance.request.SeatPriceRequest;
@@ -23,8 +19,6 @@ import org.example.ticket.util.constant.SeatInfo;
 import org.example.ticket.venue.dto.request.*;
 import org.example.ticket.venue.model.Venue;
 import org.example.ticket.venue.model.VenueHall;
-import org.example.ticket.venue.repository.VenueHallRepository;
-import org.example.ticket.venue.repository.VenueRepository;
 import org.example.ticket.venue.service.VenueHallService;
 import org.example.ticket.venue.service.VenueService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +39,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,7 +69,7 @@ class ReservationConcurrencyTest {
     private Long targetSeatId;
     private Long performanceTimeId;
     private List<Member> members;
-    private final int USER_COUNT = 3000; // 사용자 및 스레드 수를 상수로 관리
+    private final int USER_COUNT = 5000; // 사용자 및 스레드 수를 상수로 관리
 
     @BeforeEach
     @Transactional
@@ -194,7 +187,7 @@ class ReservationConcurrencyTest {
     }
 
     @Test
-    @DisplayName("낙관적 락을 이용하여 동일한 좌석에 100명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
+    @DisplayName("낙관적 락을 이용하여 동일한 좌석에 1000명의 다른 사용자가 예약 요청 시, 성능 측정 및 정합성 검증")
     void reserveSameSeatConcurrentlyWithOptimisticLock() throws InterruptedException {
         // given
         int threadCount = USER_COUNT;
